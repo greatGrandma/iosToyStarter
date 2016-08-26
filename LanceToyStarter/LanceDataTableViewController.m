@@ -9,8 +9,12 @@
 #import "LanceItem.h"
 #import "LanceToyDescriptionViewController.h"
 
-@interface LanceDataTableViewController ()
+@interface LanceDataTableViewController ()<NSURLSessionDelegate>
 @property (nonatomic) NSMutableArray *privateItems;
+@property (nonatomic, strong) NSURLSession *session;
+
+@property (nonatomic, copy) NSArray *courses;
+
 @end
 
 @implementation LanceDataTableViewController
@@ -30,6 +34,17 @@
     LanceItem *newItem4 = [[LanceItem alloc] initWithItemName:@"Item 4" valueInDollars:55];
     [self.privateItems addObject:newItem4];
     
+    
+    if(self){
+        NSURLSessionConfiguration *config =
+        [NSURLSessionConfiguration defaultSessionConfiguration];
+        
+        _session = [NSURLSession sessionWithConfiguration:config
+                                                 delegate:self
+                                            delegateQueue:nil];
+        
+        [self fetchFeed];
+    }
     return self;
     
 }
@@ -44,11 +59,7 @@
     
     [self.tableView registerClass:[UITableViewCell class]
            forCellReuseIdentifier:@"UITableViewCell"];
-
-
-
-
-
+    
     
     // Uncomment the following line to preserve selection between presentations.
     // self.clearsSelectionOnViewWillAppear = NO;
@@ -56,6 +67,32 @@
     // Uncomment the following line to display an Edit button in the navigation bar for this view controller.
     // self.navigationItem.rightBarButtonItem = self.editButtonItem;
 }
+
+- (void)fetchFeed
+{
+    NSString *requestString = @"https://bookapi.bignerdranch.com/private/courses.json";
+    NSURL *url = [NSURL URLWithString:requestString];
+    NSURLRequest *req = [NSURLRequest requestWithURL:url];
+    
+    NSURLSessionDataTask *dataTask =
+    [self.session dataTaskWithRequest:req
+                    completionHandler:
+     ^(NSData *data, NSURLResponse *response, NSError *error) {
+         
+         NSDictionary *jsonObject = [NSJSONSerialization JSONObjectWithData:data
+                                                                    options:0
+                                                                      error:nil];
+         self.courses = jsonObject[@"courses"];
+         
+         NSLog(@"%@", self.courses);
+         
+         dispatch_async(dispatch_get_main_queue(), ^{
+             [self.tableView reloadData];
+         });
+     }];
+    [dataTask resume];
+}
+
 
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
@@ -71,7 +108,8 @@
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
 #warning Incomplete implementation, return the number of rows
-    return [self.privateItems count];
+    //    return [self.privateItems count];
+    return [self.courses count];
 }
 
 
@@ -79,57 +117,21 @@
     // Get a new or recycled cell
     UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"UITableViewCell" forIndexPath:indexPath];
     
-    // Set the text on the cell with the description of the item
-    // that is at the nth index of items, where n = row this cell
-    // will appear in on the tableview
-    NSArray *items = [self.privateItems copy];
-    LanceItem *item = items[indexPath.row];
     
-    cell.textLabel.text = [item itemName];
+    //    NSArray *items = [self.privateItems copy];
+    //    LanceItem *item = items[indexPath.row];
+    //
+    //    cell.textLabel.text = [item itemName];
+    
+    NSDictionary *course = self.courses[indexPath.row];
+    cell.textLabel.text = course[@"title"];
     
     return cell;
 }
 
 
-/*
-// Override to support conditional editing of the table view.
-- (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {
-    // Return NO if you do not want the specified item to be editable.
-    return YES;
-}
-*/
 
-/*
-// Override to support editing the table view.
-- (void)tableView:(UITableView *)tableView commitEditingStyle:(UITableViewCellEditingStyle)editingStyle forRowAtIndexPath:(NSIndexPath *)indexPath {
-    if (editingStyle == UITableViewCellEditingStyleDelete) {
-        // Delete the row from the data source
-        [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationFade];
-    } else if (editingStyle == UITableViewCellEditingStyleInsert) {
-        // Create a new instance of the appropriate class, insert it into the array, and add a new row to the table view
-    }   
-}
-*/
 
-/*
-// Override to support rearranging the table view.
-- (void)tableView:(UITableView *)tableView moveRowAtIndexPath:(NSIndexPath *)fromIndexPath toIndexPath:(NSIndexPath *)toIndexPath {
-}
-*/
-
-/*
-// Override to support conditional rearranging of the table view.
-- (BOOL)tableView:(UITableView *)tableView canMoveRowAtIndexPath:(NSIndexPath *)indexPath {
-    // Return NO if you do not want the item to be re-orderable.
-    return YES;
-}
-*/
-
-/*
-#pragma mark - Table view delegate
-
-// In a xib-based application, navigation from a table can be handled in -tableView:didSelectRowAtIndexPath:
- */
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     // Navigation logic may go here, for example:
     // Create the next view controller.
@@ -145,14 +147,21 @@
 }
 
 
-/*
-#pragma mark - Navigation
 
-// In a storyboard-based application, you will often want to do a little preparation before navigation
-- (void)prepareForSegue:(UIStoryboardSegue *)segue sender:(id)sender {
-    // Get the new view controller using [segue destinationViewController].
-    // Pass the selected object to the new view controller.
+- (void)  URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task
+ didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge
+   completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential *))completionHandler
+{
+    NSURLCredential *cred =
+    [NSURLCredential credentialWithUser:@"BigNerdRanch"
+                               password:@"AchieveNerdvana"
+                            persistence:NSURLCredentialPersistenceForSession];
+    completionHandler(NSURLSessionAuthChallengeUseCredential, cred);
 }
-*/
+
+//- (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential))completionHandler
+//{
+//    completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
+//}
 
 @end
